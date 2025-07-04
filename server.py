@@ -24,7 +24,7 @@ def write_stats(username, stats):
 
 @app.route("/")
 def index():
-    return send_from_directory("faceit.html")
+    return send_file("faceit.html")
 
 @app.route("/stats.json", methods=["GET", "POST"])
 def stats():
