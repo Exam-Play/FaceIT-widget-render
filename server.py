@@ -1,12 +1,8 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import asyncio
-import json
-import time
+from flask import Flask, request, jsonify, render_template, send_from_directory
+import asyncio, json, time, os
 from threading import Thread
 from faceit import get_full_stats
-from flask import send_file
-
+from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)
@@ -14,17 +10,9 @@ CORS(app)
 stats_file = "stats.json"
 current_username = "_ExamPlay_"
 
-def get_username():
-    global current_username
-    return current_username
-
-def write_stats(username, stats):
-    with open(stats_file, "w") as f:
-        json.dump({"username": username, **stats}, f, indent=2)
-
 @app.route("/")
 def index():
-    return send_file("faceit.html")
+    return render_template("faceit.html")  # Ищет в /templates
 
 @app.route("/stats.json", methods=["GET", "POST"])
 def stats():
@@ -39,11 +27,11 @@ def stats():
         loop.close()
 
         if stats_data:
-            write_stats(username, stats_data)
+            with open(stats_file, "w") as f:
+                json.dump({"username": username, **stats_data}, f, indent=2)
             return jsonify(stats_data)
         else:
             return jsonify({"ok": False, "error": "Статистика не найдена"}), 400
-
     else:
         try:
             with open(stats_file, "r") as f:
@@ -51,31 +39,18 @@ def stats():
         except:
             return jsonify({"username": "_ExamPlay_", "elo": "-", "kd": "-", "winrate": "-"})
 
-
 def update_stats_loop():
     while True:
-        username = get_username()
-
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        stats_data = loop.run_until_complete(get_full_stats(username))
+        stats_data = loop.run_until_complete(get_full_stats(current_username))
         loop.close()
-
         if stats_data:
-            print(f"[✅] {username} | Elo: {stats_data['elo']} | K/D: {stats_data.get('kd')} | ADR: {stats_data.get('adr')} | WinRate: {stats_data.get('win_rate')}%")
-            write_stats(username, stats_data)
-        else:
-            print(f"[⚠️] Не удалось обновить статистику для {username}")
-
+            with open(stats_file, "w") as f:
+                json.dump({"username": current_username, **stats_data}, f, indent=2)
         time.sleep(10)
 
-@app.route("/")
-def home():
-    return "API сервер работает!"
-
-
 if __name__ == "__main__":
-    import os
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
     Thread(target=update_stats_loop, daemon=True).start()
+    app.run(host="0.0.0.0", port=port)
