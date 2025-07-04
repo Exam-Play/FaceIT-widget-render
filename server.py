@@ -5,6 +5,8 @@ import json
 import time
 from threading import Thread
 from faceit import get_full_stats
+from flask import send_file
+
 
 app = Flask(__name__)
 CORS(app)
@@ -19,6 +21,10 @@ def get_username():
 def write_stats(username, stats):
     with open(stats_file, "w") as f:
         json.dump({"username": username, **stats}, f, indent=2)
+
+@app.route("/")
+def index():
+    return send_from_directory("faceit.html")
 
 @app.route("/stats.json", methods=["GET", "POST"])
 def stats():
@@ -63,10 +69,13 @@ def update_stats_loop():
 
         time.sleep(10)
 
+@app.route("/")
+def home():
+    return "API сервер работает!"
+
 
 if __name__ == "__main__":
     import os
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
     Thread(target=update_stats_loop, daemon=True).start()
-    app.run()
